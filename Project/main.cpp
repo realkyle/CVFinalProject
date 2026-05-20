@@ -23,8 +23,8 @@ int main(int argc, char* argv[]) {
     cv::GaussianBlur(gray, blurred, cv::Size(5, 5), 1.5);
 
     // --- Classification ---
-    std::vector<ParkingSpace> spaces = getROIs();
-    classifySpaces(blurred, spaces);  // tune threshold in parking.cpp if needed
+    std::vector<ParkingSpace> spaces = getROIs(imagePath);
+    classifySpaces(blurred, spaces);  // tune threshold in parking.h if needed
 
     // --- Draw results onto original color image ---
     drawResults(image, spaces);
@@ -44,8 +44,10 @@ int main(int argc, char* argv[]) {
 
     // --- Save output ---
     size_t sep = imagePath.find_last_of("/\\");
-    std::string filename = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
-    std::string outputPath = "..\\output\\result_" + filename;
+    std::string filename = (sep == std::string::npos) ? imagePath  : imagePath.substr(sep + 1);
+    std::string imageDir = (sep == std::string::npos) ? "."        : imagePath.substr(0, sep);
+    // Output goes to output/ sibling of the images/ folder — works regardless of run location
+    std::string outputPath = imageDir + "\\..\\output\\result_" + filename;
 
     if (!cv::imwrite(outputPath, image))
         std::cerr << "Warning: Could not save to: " << outputPath << std::endl;

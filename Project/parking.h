@@ -8,8 +8,8 @@ struct ParkingSpace {
     bool occupied;
 };
 
-// Returns hardcoded list of parking space ROIs for the test image
-std::vector<ParkingSpace> getROIs();
+// Returns parking space ROIs for the given image (selects lot layout by filename)
+std::vector<ParkingSpace> getROIs(const std::string& imagePath);
 
 // Runs Canny edge detection on each ROI and sets occupied flag
 // threshold: edge pixel count above which a space is considered occupied
