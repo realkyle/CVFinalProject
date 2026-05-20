@@ -1,0 +1,24 @@
+# Visual Studio build output
+x64/
+Debug/
+Release/
+
+# Visual Studio internal cache (safe to delete, VS regenerates it)
+.vs/
+
+# Per-user project settings (machine-specific paths)
+*.user
+
+# Compiled artifacts
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.log
+
+# Incremental build files
+*.tlog
+*.recipe
+*.idb
+*.ipch
