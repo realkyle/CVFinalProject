@@ -16,19 +16,18 @@ from overhead or security-camera images. Built with C++ and OpenCV 4 — no mach
 ## Project Structure
 
 ```
-CVFinalProject/
-├── Project/                   # Visual Studio solution
-│   ├── Project.sln
-│   ├── images/                # Input test images (JPG/PNG)
-│   ├── output/                # Annotated result images saved here
-│   ├── scripts/
-│   │   └── run.bat            # Batch script to run detector on all images
-│   └── Project/               # C++ source
-│       ├── main.cpp
-│       ├── parking.cpp
-│       └── parking.h
+Project/                       # Visual Studio solution root (this folder)
+├── Project.sln
+├── README.md
+├── images/                    # Input test images (JPG/PNG)
+├── output/                    # Annotated result images saved here
 ├── docs/                      # Write-up and slides
-└── README.md
+├── scripts/
+│   └── run.bat                # Batch script to run detector on all images
+└── Project/                   # C++ source
+    ├── main.cpp
+    ├── parking.cpp
+    └── parking.h
 ```
 
 ---
@@ -67,7 +66,9 @@ Input image
 ### ROI Definition
 
 Parking space regions are **manually defined** as `cv::Rect(x, y, width, height)` coordinates
-hardcoded in `parking.cpp → getROIs()`. These must be set to match your specific test image.
+hardcoded in `parking.cpp`. The function `getROIs(imagePath)` automatically selects the correct
+layout based on the image filename: UFPR04 lot for filenames starting with `2012-09`, `2012-10`,
+or `2012-11`; PUCPR lot otherwise.
 
 To find coordinates: open the image in MS Paint, hover over the corners of each space —
 the pixel coordinate is shown in the bottom-left status bar.
@@ -87,7 +88,7 @@ and known-occupied space, and pick a value between the two readings.
 
 ## Build Instructions
 
-1. Open `Project/Project.sln` in Visual Studio 2022
+1. Open `Project.sln` in Visual Studio 2022
 2. Set the platform to **x64** (top toolbar dropdown)
 3. Set configuration to **Debug** or **Release**
 4. Press `Ctrl+Shift+B` to build
