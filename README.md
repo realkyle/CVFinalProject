@@ -28,6 +28,8 @@ Project/                       # Visual Studio solution root (this folder)
     ├── main.cpp
     ├── parking.cpp
     └── parking.h
+└── label_tool/
+    └── label_tool.cpp
 ```
 
 ---
@@ -70,8 +72,10 @@ hardcoded in `parking.cpp`. The function `getROIs(imagePath)` automatically sele
 layout based on the image filename: UFPR04 lot for filenames starting with `2012-09`, `2012-10`,
 or `2012-11`; PUCPR lot otherwise.
 
-To find coordinates: open the image in MS Paint, hover over the corners of each space —
-the pixel coordinate is shown in the bottom-left status bar.
+To find coordinates: run `label_tool.cpp` with a empty parking lot image. Select the four vertex
+for a parking spot with mouse. Click on top left, top right, bottom left, bottom right corners
+of a parking space. When done with drawing parking spaces, press key 'S' to output the coordinates
+to the console. Copy the vertices and past into `parking.cpp`.
 
 ### Threshold Tuning
 
