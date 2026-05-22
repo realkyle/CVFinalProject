@@ -4,7 +4,7 @@
 #include <string>
 
 struct ParkingSpace {
-    cv::Rect roi;       // bounding box in the full image
+    std::vector<cv::Point> poly;       // bounding box in the full image
     bool occupied;
 };
 
