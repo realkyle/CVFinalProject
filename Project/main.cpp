@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
 
     // --- Classification ---
     std::vector<ParkingSpace> spaces = getROIs(imagePath);
-    classifySpaces(blurred, spaces);  // tune threshold in parking.h if needed
+    classifySpaces(blurred, spaces, getThreshold(imagePath), getVarianceThreshold(imagePath));
 
     // --- Draw results onto original color image ---
     drawResults(image, spaces);

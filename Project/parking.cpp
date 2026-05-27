@@ -5,26 +5,61 @@
 // UFPR04 lot — large multi-row horizontal lot
 // Calibrated from 2012-10-13 (mostly empty). Image size: 640x640.
 //
-// Layout: 4 row-pairs, each pair = upper row + green median + lower row.
-// 8 spaces per row, x from 50 to 432, w=46. 8 rows * 8 spaces = 64 ROIs.
-//
-// To retune: open 2012-10-13 in MS Paint, hover each space corner, read coords.
+// Layout: 5 band-pairs top-to-bottom, 2 rows per pair = 10 rows.
+// Column x-positions measured in reference row (y=254, 28 spaces).
+// Cols 28-29 are estimated by extending the measured spacing pattern.
+// Each row shifts all columns by dx (lot is slightly angled in the image).
+// nCols per row trims the right end where trees intrude (top rows) or
+// extends it where extra spaces are visible (bottom rows).
 // ---------------------------------------------------------------------------
 static std::vector<ParkingSpace> getROIs_UFPR04() {
-    const int w = 46, h = 28;
-    const int xs[] = { 50, 98, 146, 194, 242, 290, 338, 386 };
-    // 4 band-pairs, 2 rows each: upper y, lower y
-    const int ys[] = { 28, 65, 128, 168, 233, 270, 343, 383 };
+    // 28 measured + 2 estimated columns
+    static const int kMaxCols = 30;
+    static const int colX[kMaxCols] = {
+          8,  24,  42,  57,  73,  88, 104, 121,
+        141, 159, 173, 192, 219, 237, 255, 274,
+        291, 310, 330, 348, 368, 386, 405, 425,
+        451, 465, 486, 504,
+        524, 542   // estimated: extends spacing pattern rightward
+    };
+    static const int colW[kMaxCols] = {
+        10,  8,  7,  8,  7,  8, 10, 10,
+         7,  8, 13, 12, 13, 12, 13, 11,
+        15, 11, 12, 13, 13, 13, 13, 12,
+         8, 15, 14, 19,
+        15, 15   // estimated
+    };
+
+    // {y, h, dx, nCols}
+    // dx shifts all columns right/left to follow the lot's slight angle.
+    // nCols: top rows capped to avoid trees; bottom rows extended for extra spaces.
+    static const int kRows = 10;
+    static const int rowData[kRows][4] = {
+        {  4,  9, 92, 24 },  // pair 1 upper — rightmost 4 cols hit trees
+        { 27, 13, 82, 24 },  // pair 1 lower
+        { 69, 13, 62, 24 },  // pair 2 upper
+        { 95, 17, 49, 24 },  // pair 2 lower
+        {146, 16, 22, 27 },  // pair 3 upper — 1 col hits trees
+        {184, 16,  7, 28 },  // pair 3 lower — full measured set
+        {254, 19,  0, 29 },  // pair 4 upper (reference) — +1 estimated col
+        {297, 20, -2, 29 },  // pair 4 lower — +1 estimated col
+        {380, 27, -5, 30 },  // pair 5 upper — +2 estimated cols
+        {455, 34,  6, 28 },  // pair 5 lower — full measured set
+    };
 
     std::vector<ParkingSpace> spaces;
-    for (int y : ys)
-        for (int x : xs)
+    for (int r = 0; r < kRows; r++) {
+        int y = rowData[r][0], h = rowData[r][1], dx = rowData[r][2], n = rowData[r][3];
+        for (int c = 0; c < n; c++) {
+            int x = colX[c] + dx, w = colW[c];
             spaces.push_back({ {
-                {x,     y},
-                {x + w,   y},
-                {x + w,   y + h},
+                {x,     y    },
+                {x + w, y    },
+                {x + w, y + h},
                 {x,     y + h}
             }, false });
+        }
+    }
     return spaces;
 }
 
@@ -107,35 +142,57 @@ std::vector<ParkingSpace> getROIs(const std::string& imagePath) {
     return isUFPR04 ? getROIs_UFPR04() : getROIs_PUCPR();
 }
 
-void classifySpaces(const cv::Mat& blurred, std::vector<ParkingSpace>& spaces, int threshold) {
+int getThreshold(const std::string& imagePath) {
+    size_t sep = imagePath.find_last_of("/\\");
+    std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
+
+    bool isUFPR04 = (fname.find("2012-09") == 0 ||
+                     fname.find("2012-10") == 0 ||
+                     fname.find("2012-11") == 0);
+
+    return isUFPR04 ? 93 : 137;  // calibrated: UFPR04 empty max=83, PUCPR empty max=127
+}
+
+double getVarianceThreshold(const std::string& imagePath) {
+    size_t sep = imagePath.find_last_of("/\\");
+    std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
+
+    bool isUFPR04 = (fname.find("2012-09") == 0 ||
+                     fname.find("2012-10") == 0 ||
+                     fname.find("2012-11") == 0);
+
+    return isUFPR04 ? 10.0 : 35.0;  // calibrated: PUCPR empty max sd=25.12; UFPR04 needs calibration
+}
+
+void classifySpaces(const cv::Mat& blurred, std::vector<ParkingSpace>& spaces,
+                    int edgeThreshold, double varianceThreshold) {
     cv::Rect imgBounds(0, 0, blurred.cols, blurred.rows);
 
     for (auto& space : spaces) {
-        
-        // get bounding rect of the polygon
         cv::Rect bbox = cv::boundingRect(space.poly);
-        
-        // Clamp to image bounds — prevents crash if any ROI extends outside
         cv::Rect safe = bbox & imgBounds;
         if (safe.empty()) { space.occupied = false; continue; }
 
-        // build a mask for the polygon within the bounding rect
         cv::Mat mask = cv::Mat::zeros(safe.height, safe.width, CV_8UC1);
         std::vector<cv::Point> shifted;
         for (const auto& p : space.poly)
             shifted.push_back(p - cv::Point(safe.x, safe.y));
         cv::fillConvexPoly(mask, shifted, cv::Scalar(255));
 
-
-        // Canny
         cv::Mat roi = blurred(safe);
+
+        // Signal 1: Canny edge density
         cv::Mat edges;
-        // Low=30/High=90: more sensitive than default, catches lower-contrast cars
         cv::Canny(roi, edges, 50, 150);
         cv::bitwise_and(edges, mask, edges);
-
         int edgeCount = cv::countNonZero(edges);
-        space.occupied = (edgeCount > threshold);
+
+        // Signal 2: pixel intensity stddev (empty pavement is uniform; cars add texture)
+        cv::Scalar mean, stddev;
+        cv::meanStdDev(roi, mean, stddev, mask);
+        double sd = stddev[0];
+
+        space.occupied = (edgeCount > edgeThreshold) || (sd > varianceThreshold);
     }
 }
 

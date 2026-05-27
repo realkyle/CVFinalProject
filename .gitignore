@@ -22,3 +22,7 @@ Release/
 *.recipe
 *.idb
 *.ipch
+
+# Doc generation scripts
+docs/make_writeup.py
+docs/make_slides.py
