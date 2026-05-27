@@ -76,6 +76,7 @@ interactively with `label_tool.exe`:
 
 Lot routing is automatic based on filename prefix:
 - `UFPR*` or `2012-09*`, `2012-10*`, `2012-11*` → UFPR04 lot (257 spaces)
+- `ANG*` → ANG lot (34 spaces)
 - Everything else → PUCPR lot (43 spaces)
 
 ### Threshold Calibration
@@ -84,8 +85,9 @@ Thresholds are calibrated per lot on an empty reference image:
 
 | Lot | Edge threshold | Variance threshold | Calibration image |
 |---|---|---|---|
-| PUCPR  | 137 | 35.0 | PUCPR3.jpg  |
-| UFPR04 | 100 | 25.0 | UFPR1.jpg   |
+| PUCPR  | 137 | 35.0 | PUCPR3.jpg |
+| UFPR04 | 100 | 25.0 | UFPR1.jpg  |
+| ANG    | 170 | 35.0 | ANG1.jpg   |
 
 To recalibrate: temporarily add `std::cout << "edge=" << edgeCount << " sd=" << sd << "\n";`
 inside `classifySpaces()`, run on the empty reference, find the max values, and set
@@ -138,6 +140,9 @@ Press any key in the display window to advance to the next image when running th
 | UFPR1.jpg  | UFPR04 | Empty reference | 0   | 257 | 257 |
 | UFPR2.jpg  | UFPR04 | Partial         | 120 | 137 | 257 |
 | UFPR3.jpg  | UFPR04 | Heavy           | 212 | 45  | 257 |
+| ANG1.jpg   | ANG    | Empty reference | 0   | 34  | 34  |
+| ANG2.jpg   | ANG    | Partial         | 8   | 26  | 34  |
+| ANG3.jpg   | ANG    | Heavy           | 29  | 5   | 34  |
 
 ---
 

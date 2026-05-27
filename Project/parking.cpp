@@ -268,6 +268,49 @@ static std::vector<ParkingSpace> getROIs_UFPR04() {
 }
 
 // ---------------------------------------------------------------------------
+// ANG lot — polygon ROIs traced manually with label_tool on ANG1.jpg
+// ---------------------------------------------------------------------------
+static std::vector<ParkingSpace> getROIs_ANG() {
+    std::vector<ParkingSpace> spaces = {
+    {{{360,632},{326,539},{369,515},{406,584}}, false},
+    {{{413,580},{354,457},{389,437},{425,494}}, false},
+    {{{240,546},{289,517},{311,567},{197,633}}, false},
+    {{{375,388},{426,481},{439,413},{408,369}}, false},
+    {{{392,330},{440,408},{452,354},{426,317}}, false},
+    {{{407,283},{450,344},{460,302},{436,271}}, false},
+    {{{421,244},{463,294},{466,256},{443,233}}, false},
+    {{{432,207},{468,252},{476,221},{454,198}}, false},
+    {{{441,177},{480,214},{481,187},{462,168}}, false},
+    {{{451,148},{482,178},{486,161},{468,139}}, false},
+    {{{571,320},{568,369},{618,336},{610,298}}, false},
+    {{{572,273},{569,308},{606,287},{603,260}}, false},
+    {{{19,523},{65,490},{66,446},{25,464}}, false},
+    {{{73,401},{77,478},{109,396},{107,383}}, false},
+    {{{46,348},{51,417},{7,432},{8,392}}, false},
+    {{{56,344},{57,373},{87,357},{84,304}}, false},
+    {{{93,298},{95,319},{130,300},{117,262}}, false},
+    {{{128,255},{134,278},{161,266},{150,222}}, false},
+    {{{159,218},{165,238},{191,232},{178,193}}, false},
+    {{{186,188},{192,207},{214,199},{202,167}}, false},
+    {{{209,163},{216,176},{232,170},{224,144}}, false},
+    {{{233,141},{237,151},{254,142},{240,121}}, false},
+    {{{248,118},{255,128},{271,124},{260,104}}, false},
+    {{{285,117},{307,142},{315,126},{306,114}}, false},
+    {{{271,139},{288,168},{298,147},{290,134}}, false},
+    {{{251,163},{268,195},{280,170},{273,152}}, false},
+    {{{231,190},{248,223},{261,197},{254,183}}, false},
+    {{{206,221},{226,268},{242,230},{233,212}}, false},
+    {{{178,257},{196,307},{220,269},{209,244}}, false},
+    {{{347,288},{376,273},{387,289},{345,320}}, false},
+    {{{359,247},{346,281},{404,255},{394,237}}, false},
+    {{{374,215},{365,239},{412,218},{403,204}}, false},
+    {{{385,187},{376,206},{421,187},{415,176}}, false},
+    {{{393,160},{386,179},{427,158},{420,148}}, false},
+    };
+    return spaces;
+}
+
+// ---------------------------------------------------------------------------
 // PUCPR lot — smaller diagonal/angled lot with landscaping
 // Calibrated from 2012-12-08 (mostly empty). Image size: 640x640.
 //
@@ -339,36 +382,36 @@ std::vector<ParkingSpace> getROIs(const std::string& imagePath) {
     size_t sep = imagePath.find_last_of("/\\");
     std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
 
-    bool isUFPR04 = (fname.find("UFPR") == 0 ||
-                     fname.find("2012-09") == 0 ||
-                     fname.find("2012-10") == 0 ||
-                     fname.find("2012-11") == 0);
-
-    return isUFPR04 ? getROIs_UFPR04() : getROIs_PUCPR();
+    if (fname.find("ANG") == 0)  return getROIs_ANG();
+    if (fname.find("UFPR") == 0 ||
+        fname.find("2012-09") == 0 ||
+        fname.find("2012-10") == 0 ||
+        fname.find("2012-11") == 0) return getROIs_UFPR04();
+    return getROIs_PUCPR();
 }
 
 int getThreshold(const std::string& imagePath) {
     size_t sep = imagePath.find_last_of("/\\");
     std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
 
-    bool isUFPR04 = (fname.find("UFPR") == 0 ||
-                     fname.find("2012-09") == 0 ||
-                     fname.find("2012-10") == 0 ||
-                     fname.find("2012-11") == 0);
-
-    return isUFPR04 ? 100 : 137;  // calibrated: UFPR04 empty max=100, PUCPR empty max=127
+    if (fname.find("ANG") == 0)  return 170;  // calibrated: ANG empty max=166
+    if (fname.find("UFPR") == 0 ||
+        fname.find("2012-09") == 0 ||
+        fname.find("2012-10") == 0 ||
+        fname.find("2012-11") == 0) return 100;
+    return 137;  // PUCPR
 }
 
 double getVarianceThreshold(const std::string& imagePath) {
     size_t sep = imagePath.find_last_of("/\\");
     std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
 
-    bool isUFPR04 = (fname.find("UFPR") == 0 ||
-                     fname.find("2012-09") == 0 ||
-                     fname.find("2012-10") == 0 ||
-                     fname.find("2012-11") == 0);
-
-    return isUFPR04 ? 25.0 : 35.0;  // calibrated: UFPR04 empty max sd=23.49, PUCPR empty max sd=25.12
+    if (fname.find("ANG") == 0)  return 35.0;  // calibrated: ANG empty max sd=30.06
+    if (fname.find("UFPR") == 0 ||
+        fname.find("2012-09") == 0 ||
+        fname.find("2012-10") == 0 ||
+        fname.find("2012-11") == 0) return 25.0;
+    return 35.0;  // PUCPR
 }
 
 void classifySpaces(const cv::Mat& blurred, std::vector<ParkingSpace>& spaces,
