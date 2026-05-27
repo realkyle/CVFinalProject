@@ -1,164 +1,165 @@
 # Parking Lot Occupancy Detector
 
 A classical computer vision program that classifies parking spaces as **OCCUPIED** or **EMPTY**
-from overhead or security-camera images. Built with C++ and OpenCV 4 — no machine learning.
+from overhead security-camera images. Built with C++ and OpenCV 4.11.0 — no machine learning.
 
 ---
 
 ## Requirements
 
 - Visual Studio 2022
-- OpenCV 4 installed at `C:\opencv` (tested with 4.11.0)
-- `C:\opencv\build\x64\vc16\bin` must be on your system PATH so the DLL is found at runtime
+- OpenCV 4.11.0 installed at `C:\opencv\`
+- `C:\opencv\build\x64\vc16\bin` on your system PATH (for the DLL at runtime)
 
 ---
 
 ## Project Structure
 
 ```
-Project/                       # Visual Studio solution root (this folder)
+Project/                       # Visual Studio solution root
 ├── Project.sln
 ├── README.md
 ├── images/                    # Input test images (JPG/PNG)
 ├── output/                    # Annotated result images saved here
-├── docs/                      # Write-up and slides
+├── docs/                      # make_writeup.py → writeup.docx, make_slides.py → slides.pptx
 ├── scripts/
 │   └── run.bat                # Batch script to run detector on all images
-└── Project/                   # C++ source
-    ├── main.cpp
-    ├── parking.cpp
-    └── parking.h
+├── Project/                   # C++ source
+│   ├── main.cpp
+│   ├── parking.cpp
+│   └── parking.h
 └── label_tool/
-    └── label_tool.cpp
+    └── label_tool.cpp         # Interactive polygon ROI tracer
 ```
 
 ---
 
 ## How It Works
 
-The detector uses **Canny edge density** to decide whether a parking space is occupied.
-The idea: a car sitting in a space creates edges from its body, windows, and shadow, while
-an empty asphalt space is visually uniform and produces very few edges.
-
 ### Pipeline
 
 ```
-Input image
-    └─ Grayscale conversion        (cv::cvtColor)
-    └─ Gaussian Blur 5x5           (cv::GaussianBlur, reduces noise before edge detection)
-    └─ For each parking space ROI:
-          └─ Extract sub-image     (cv::Mat roi = blurred(space.roi))
-          └─ Canny edge detection  (cv::Canny, low=50 high=150)
-          └─ Count edge pixels     (cv::countNonZero)
-          └─ edge count > 150?
-                ├─ YES → OCCUPIED  (red bounding box + "OCC" label)
-                └─ NO  → EMPTY     (green bounding box + "EMP" label)
-    └─ Overlay "Occupied: X  Empty: Y" count text
+Input image (640×640 overhead JPEG)
+    └─ Grayscale            (cv::cvtColor)
+    └─ Gaussian Blur 5×5    (cv::GaussianBlur, σ=1.5)
+    └─ For each parking space polygon ROI:
+          └─ Build polygon mask     (cv::fillConvexPoly)
+          └─ Canny edge detection   (cv::Canny, low=50, high=150)
+          └─ Count edge pixels      (cv::countNonZero)  → edgeCount
+          └─ Intensity stddev       (cv::meanStdDev)    → σ
+          └─ OCCUPIED if edgeCount > edgeThreshold  OR  σ > varianceThreshold
+    └─ Draw red (OCC) / green (EMP) polygon outlines
     └─ Save annotated image to output/
     └─ Display result window
 ```
 
-### Why Edge Density?
+### Dual-Signal Classifier
 
-- Parked cars have strong structural edges (roof lines, windows, wheel arches, shadows).
-- Empty spaces are bare asphalt — low texture, low edge count after blurring.
-- Canny with Gaussian pre-blur suppresses lighting noise while preserving real object boundaries,
-  making the threshold relatively stable across different lighting conditions.
+Two independent signals are combined with OR logic:
+
+| Signal | Occupied indicator | Empty indicator |
+|---|---|---|
+| Canny edge count | High (car body, windows, shadow edges) | Low (uniform asphalt) |
+| Intensity stddev σ | High (texture, color contrast) | Low (spectrally uniform pavement) |
+
+A space is **OCCUPIED** if either signal exceeds its per-lot threshold.
 
 ### ROI Definition
 
-Parking space regions are **manually defined** as `cv::Rect(x, y, width, height)` coordinates
-hardcoded in `parking.cpp`. The function `getROIs(imagePath)` automatically selects the correct
-layout based on the image filename: UFPR04 lot for filenames starting with `2012-09`, `2012-10`,
-or `2012-11`; PUCPR lot otherwise.
+Each parking space is defined as a **quadrilateral polygon** (four corner points) traced
+interactively with `label_tool.exe`:
 
-To find coordinates: run `label_tool.cpp` with a empty parking lot image. Select the four vertex
-for a parking spot with mouse. Click on top left, top right, bottom left, bottom right corners
-of a parking space. When done with drawing parking spaces, press key 'S' to output the coordinates
-to the console. Copy the vertices and past into `parking.cpp`.
+1. Run `label_tool.exe <empty_lot_image.jpg>`
+2. Click four corners per space — the polygon auto-completes after the 4th click
+3. **U** to undo, **S** to print C++ code to the console, **ESC** to quit
+4. Paste the printed block into `getROIs_PUCPR()` or `getROIs_UFPR04()` in `parking.cpp`
 
-### Threshold Tuning
+Lot routing is automatic based on filename prefix:
+- `UFPR*` or `2012-09*`, `2012-10*`, `2012-11*` → UFPR04 lot (257 spaces)
+- Everything else → PUCPR lot (43 spaces)
 
-The occupancy threshold (default **150 edge pixels**) can be adjusted in `parking.h`:
+### Threshold Calibration
 
-```cpp
-void classifySpaces(const cv::Mat& blurred, std::vector<ParkingSpace>& spaces, int threshold = 150);
-```
+Thresholds are calibrated per lot on an empty reference image:
 
-To tune: add a `std::cout << edgeCount` print inside `classifySpaces`, run on a known-empty
-and known-occupied space, and pick a value between the two readings.
+| Lot | Edge threshold | Variance threshold | Calibration image |
+|---|---|---|---|
+| PUCPR  | 137 | 35.0 | PUCPR3.jpg  |
+| UFPR04 | 100 | 25.0 | UFPR1.jpg   |
 
----
-
-## Build Instructions
-
-1. Open `Project.sln` in Visual Studio 2022
-2. Set the platform to **x64** (top toolbar dropdown)
-3. Set configuration to **Debug** or **Release**
-4. Press `Ctrl+Shift+B` to build
-
-The executable is output to `Project/x64/Debug/Project.exe` (or `Release`).
+To recalibrate: temporarily add `std::cout << "edge=" << edgeCount << " sd=" << sd << "\n";`
+inside `classifySpaces()`, run on the empty reference, find the max values, and set
+`threshold = max + margin`.
 
 ---
 
-## Running the Program
+## Build
 
-### Single image (from Visual Studio)
+**Visual Studio:**
+1. Open `Project.sln`
+2. Set platform to **x64**
+3. `Ctrl+Shift+B`
 
-Go to **Project Properties → Debugging → Command Arguments** and enter:
-
+**PowerShell:**
+```powershell
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" `
+  "Project.sln" /p:Configuration=Debug /p:Platform=x64 /t:Build /v:minimal
 ```
-..\images\your_image.jpg
-```
 
-Then press `Ctrl+F5` to run.
+---
 
-### Single image (from terminal)
+## Run
 
-```cmd
+```powershell
+# Add OpenCV to PATH (once per terminal session)
+$env:Path += ";C:\opencv\build\x64\vc16\bin"
+
 cd Project\x64\Debug
-Project.exe ..\..\images\test1.jpg
+
+# Single image
+.\Project.exe "..\..\images\PUCPR1.jpg"
+
+# All images at once
+cd ..\..\scripts
+.\run.bat
 ```
 
-### All images at once (batch script)
-
-```cmd
-cd Project\scripts
-run.bat
-```
-
-This loops over every `.jpg` and `.png` in `images\` and saves annotated results to `output\`.
+Press any key in the display window to advance to the next image when running the batch script.
 
 ---
 
-## Output
+## Results
 
-Each run produces:
-- A result image saved to `output\result_<original_filename>`
-- Console output: `Occupied: X | Empty: Y | Total: Z`
-- A display window showing the annotated image (press any key to close)
-
-Red boxes = occupied spaces, green boxes = empty spaces.
+| Image | Lot | Condition | Occupied | Empty | Total |
+|---|---|---|---|---|---|
+| PUCPR3.jpg | PUCPR  | Empty reference | 0   | 43  | 43  |
+| PUCPR1.jpg | PUCPR  | Partial         | 26  | 17  | 43  |
+| PUCPR2.jpg | PUCPR  | Heavy           | 32  | 11  | 43  |
+| UFPR1.jpg  | UFPR04 | Empty reference | 0   | 257 | 257 |
+| UFPR2.jpg  | UFPR04 | Partial         | 120 | 137 | 257 |
+| UFPR3.jpg  | UFPR04 | Heavy           | 212 | 45  | 257 |
 
 ---
 
 ## Dataset
 
-Test images are from the **PKLot dataset** — overhead parking lot images captured under
-varied conditions (sunny, overcast, shadowed, different fill levels).
+Test images are from the **PKLot dataset** (De Almeida et al., 2015) — overhead parking lot
+images from PUCPR and UFPR (Brazil) captured under varied lighting and occupancy conditions.
 
 ---
 
-## Key OpenCV Functions Used
+## Key OpenCV Functions
 
 | Function | Purpose |
 |---|---|
 | `cv::imread` | Load image from disk |
-| `cv::cvtColor` | Convert BGR to grayscale |
-| `cv::GaussianBlur` | Smooth image to reduce noise |
-| `cv::Canny` | Detect edges in each parking space ROI |
-| `cv::countNonZero` | Count edge pixels to measure texture density |
-| `cv::rectangle` | Draw colored bounding boxes |
-| `cv::putText` | Overlay OCC/EMP labels and count text |
+| `cv::cvtColor` | BGR → grayscale |
+| `cv::GaussianBlur` | Smooth image before edge detection |
+| `cv::fillConvexPoly` | Build polygon mask for each space |
+| `cv::Canny` | Detect edges within masked ROI |
+| `cv::countNonZero` | Count edge pixels |
+| `cv::meanStdDev` | Compute intensity variance within mask |
+| `cv::polylines` | Draw polygon outlines on result image |
+| `cv::putText` | Overlay OCC/EMP labels and count |
 | `cv::imwrite` | Save annotated result image |
-| `cv::imshow` | Display result in a window |
+| `cv::imshow` | Display result window |
