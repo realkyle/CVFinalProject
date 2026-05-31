@@ -1,7 +1,56 @@
+// ---------------------------------------------------------------------------
+// MAIN.CPP
+// Authors: Jingyi Zhong, Kyle Hale
+//
+// Description:
+//   Entry point for the parking lot occupancy detector. Runs the full
+//   detection pipeline on a single input image provided as a command-line
+//   argument:
+//
+//     1. Load the input image from disk.
+//     2. Preprocess: convert to grayscale and apply Gaussian blur.
+//     3. Load the correct polygon ROIs for the detected lot (via filename).
+//     4. Classify each space as occupied or empty using edge density and
+//        pixel variance (per-lot thresholds applied automatically).
+//     5. Annotate the image with colored polygon outlines and OCC/EMP labels.
+//     6. Overlay the total occupied/empty count as text.
+//     7. Save the annotated image to the output/ folder.
+//     8. Display the result in a window.
+//
+// Usage:
+//   Project.exe <image_path>
+//   Example: Project.exe ..\images\UFPR1.jpg
+//
+// Assumptions:
+//   - The output directory exists at <image_dir>\..\output\ relative to the
+//     input image. The program will warn but not crash if it does not exist.
+//   - The input image filename prefix matches one of the supported lots
+//     (ANG, UFPR, 2012-09/10/11, or PUCPR as default). See parking.cpp.
+//   - Only one image is processed per invocation. For batch processing,
+//     call the executable in a loop from a script.
+// ---------------------------------------------------------------------------
+
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <string>
 #include "parking.h"
+
+// --------main------------------------------------------------------------------
+// Pre-conditions:
+//   1. Exactly one command-line argument is provided: the path to a valid
+//     image file readable by OpenCV (JPEG, PNG, BMP, etc.).
+//   2. The output directory (..\output\ relative to the image directory)
+//     exists and is writable.
+//   3. parking.cpp contains ROI definitions for the lot identified by the
+//     image filename prefix.
+//
+// Post-conditions:
+//   1. An annotated result image is saved to:
+//       <image_dir>\..\output\result_<filename>
+//   2. Occupied, empty, and total space counts are printed to stdout.
+//   3. A display window shows the annotated image until any key is pressed.
+//   4. Returns 0 on success, 1 on argument or image-load error.
+// ----------------------------------------------------------------------------
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -46,7 +95,6 @@ int main(int argc, char* argv[]) {
     size_t sep = imagePath.find_last_of("/\\");
     std::string filename = (sep == std::string::npos) ? imagePath  : imagePath.substr(sep + 1);
     std::string imageDir = (sep == std::string::npos) ? "."        : imagePath.substr(0, sep);
-    // Output goes to output/ sibling of the images/ folder — works regardless of run location
     std::string outputPath = imageDir + "\\..\\output\\result_" + filename;
 
     if (!cv::imwrite(outputPath, image))

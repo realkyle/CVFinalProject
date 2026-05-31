@@ -1,8 +1,13 @@
+//----------------------------------------------------------------------------
+// PARKING.CPP
+// Author: Jingyi Zhong, Kyle Hale
+// ----------------------------------------------------------------------------
+
 #include "parking.h"
 #include <algorithm>
 
 // ---------------------------------------------------------------------------
-// UFPR04 lot — polygon ROIs traced manually with label_tool on UFPR1.jpg
+// Returns the hardcoded polygon ROIs for the UFPR04 parking lot.
 // ---------------------------------------------------------------------------
 static std::vector<ParkingSpace> getROIs_UFPR04() {
     std::vector<ParkingSpace> spaces = {
@@ -315,10 +320,9 @@ static std::vector<ParkingSpace> getROIs_ANG() {
 // Calibrated from 2012-12-08 (mostly empty). Image size: 640x640.
 //
 // Rectangular ROIs approximate the angled space boundaries.
-// Expect some mis-alignment — tune x/y/w/h against the actual images.
 // ---------------------------------------------------------------------------
 static std::vector<ParkingSpace> getROIs_PUCPR() {
-    std::vector<ParkingSpace> polys = {
+    std::vector<ParkingSpace> spaces = {
     {{{132,55},{179,67},{167,90},{131,81}}, false},
     {{{135,82},{190,94},{179,120},{136,106}}, false},
     {{{155,114},{203,128},{193,154},{151,143}}, false},
@@ -364,21 +368,19 @@ static std::vector<ParkingSpace> getROIs_PUCPR() {
     {{{596,116},{625,125},{632,185},{600,175}}, false},
     };
     // 43 spaces total
-    // 43 spaces total
-
-    std::vector<ParkingSpace> spaces;
-    for (auto& p : polys)
-        spaces.push_back({ p});
+    
     return spaces;
 }
 
-// ---------------------------------------------------------------------------
-// Route to the correct lot based on image filename prefix.
+// -------getROIs--------------------------------------------------------------------
+// Public router that selects the correct lot's polygon ROI set based on the
+// filename prefix and returns it.
+// 
 // UFPR04: filenames starting UFPR, 2012-09, 2012-10, or 2012-11
 // PUCPR:  everything else (PUCPR*, 2012-12, 2013-*)
 // ---------------------------------------------------------------------------
+
 std::vector<ParkingSpace> getROIs(const std::string& imagePath) {
-    // Extract just the filename (handle both / and \ separators)
     size_t sep = imagePath.find_last_of("/\\");
     std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
 
@@ -390,39 +392,68 @@ std::vector<ParkingSpace> getROIs(const std::string& imagePath) {
     return getROIs_PUCPR();
 }
 
+// -------getThreshold--------------------------------------------------------------------
+// Returns the per-lot Canny edge count threshold. Threshold values were calibrated by running
+// on known-empty images and setting the value just above the observed minimum
+// edge count.
+//     ANG:    170  (empty lot max observed: 166)
+//     UFPR04: 100
+//     PUCPR:  137  (default)
+// ---------------------------------------------------------------------------
+
 int getThreshold(const std::string& imagePath) {
     size_t sep = imagePath.find_last_of("/\\");
     std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
 
-    if (fname.find("ANG") == 0)  return 170;  // calibrated: ANG empty max=166
+    if (fname.find("ANG") == 0)  return 170;
     if (fname.find("UFPR") == 0 ||
         fname.find("2012-09") == 0 ||
         fname.find("2012-10") == 0 ||
         fname.find("2012-11") == 0) return 100;
-    return 137;  // PUCPR
+    return 137;
 }
+
+// -------getVarianceThreshold--------------------------------------------------------------------
+// Returns the per-lot pixel stddev threshold. Threshold values were calibrated by measuring stddev on
+// empty spaces across reference images for each lot.
+//     ANG:    35.0  (empty lot max observed stddev: 30.06)
+//     UFPR04: 25.0
+//     PUCPR:  35.0  (default)
+// ---------------------------------------------------------------------------
 
 double getVarianceThreshold(const std::string& imagePath) {
     size_t sep = imagePath.find_last_of("/\\");
     std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
 
-    if (fname.find("ANG") == 0)  return 35.0;  // calibrated: ANG empty max sd=30.06
+    if (fname.find("ANG") == 0)  return 35.0;
     if (fname.find("UFPR") == 0 ||
         fname.find("2012-09") == 0 ||
         fname.find("2012-10") == 0 ||
         fname.find("2012-11") == 0) return 25.0;
-    return 35.0;  // PUCPR
+    return 35.0;
 }
+
+// -------classifySpaces--------------------------------------------------------------------
+// Classifies each parking space as occupied or empty.
+// 1. The polygon is shifted into bounding-rect-local coordinates before
+//      building the mask, so that fillConvexPoly operates on a small sub-image
+//      rather than the full frame. This avoids allocating a full-image mask.
+// 2. Canny thresholds (50 low, 150 high) are fixed at a ratio of 1:3 as
+//      recommended by Canny. These inner thresholds are separate from the
+//      edgeThreshold count used for occupancy classification.
+// ---------------------------------------------------------------------------
 
 void classifySpaces(const cv::Mat& blurred, std::vector<ParkingSpace>& spaces,
                     int edgeThreshold, double varianceThreshold) {
     cv::Rect imgBounds(0, 0, blurred.cols, blurred.rows);
 
     for (auto& space : spaces) {
+        // Clamp bounding rect to image bounds to prevent out of bound access
         cv::Rect bbox = cv::boundingRect(space.poly);
         cv::Rect safe = bbox & imgBounds;
         if (safe.empty()) { space.occupied = false; continue; }
 
+        // Build polygon mask in bounding rect local coordinates
         cv::Mat mask = cv::Mat::zeros(safe.height, safe.width, CV_8UC1);
         std::vector<cv::Point> shifted;
         for (const auto& p : space.poly)
@@ -446,17 +477,20 @@ void classifySpaces(const cv::Mat& blurred, std::vector<ParkingSpace>& spaces,
     }
 }
 
+// -------drawResults--------------------------------------------------------------------
+// Annotates the image with occupancy results. See parking.h for full
+// pre/post-conditions and parameter documentation.
+// ---------------------------------------------------------------------------
+
 void drawResults(cv::Mat& image, const std::vector<ParkingSpace>& spaces) {
     for (const auto& space : spaces) {
         cv::Scalar color = space.occupied
             ? cv::Scalar(0, 0, 255)   // red  = occupied
             : cv::Scalar(0, 255, 0);  // green = empty
 
-        // draw polygon outline
         const std::vector<cv::Point>* pts = &space.poly;
         cv::polylines(image, *pts, true, color, 2);
 
-        // add label
         std::string label = space.occupied ? "OCC" : "EMP";
         cv::putText(image, label,
             cv::Point(space.poly[0].x + 4, space.poly[0].y + 14),
