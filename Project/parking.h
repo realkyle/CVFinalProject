@@ -25,13 +25,12 @@
 // Represents a single parking space in the lot. Stores the polygon boundary of the
 // space and its current occupancy classification result.
 //     poly     - Four corner points defining the boundary of this parking space.
-//     occupied - Set to true if detected vehicle, false by default. Set by
-//                classifySpaces().
+//     occupied - True if a vehicle is detected; set by classifySpaces().
 // ----------------------------------------------------------------------------
 
 struct ParkingSpace {
-    std::vector<cv::Point> poly;       
-    bool occupied;
+    std::vector<cv::Point> poly;
+    bool occupied = false;
 };
 
 // -------getROIs----------------------------------------------------
@@ -58,7 +57,7 @@ std::vector<ParkingSpace> getROIs(const std::string& imagePath);
 //   - Returns a positive integer threshold value specific to the lot.
 //   - Does not modify any state.
 // Returns:
-//   int — edge pixel count threshold.
+//   int ï¿½ edge pixel count threshold.
 //         ANG: 170 | UFPR04: 100 | PUCPR (default): 137
 // --------------------------------------------------------------------------
 
@@ -76,7 +75,7 @@ int getThreshold(const std::string& imagePath);
 //   - Does not modify any state.
 // 
 // Returns:
-//   double — pixel standard deviation threshold.
+//   double ï¿½ pixel standard deviation threshold.
 //            ANG: 35.0 | UFPR04: 25.0 | PUCPR (default): 35.0
 // --------------------------------------------------------------------------
 
@@ -119,3 +118,4 @@ void classifySpaces(const cv::Mat& blurred, std::vector<ParkingSpace>& spaces,
 // --------------------------------------------------------------------------
 
 void drawResults(cv::Mat& image, const std::vector<ParkingSpace>& spaces);
+
