@@ -3,19 +3,19 @@
 // Authors: Jingyi Zhong, Kyle Hale
 //
 // Description:
-//   Entry point for the parking lot occupancy detector. Runs the full
-//   detection pipeline on a single input image provided as a command-line
-//   argument:
+//   Main file for the parking lot occupancy detector. Runs the full
+//   detection pipeline on single input image provided as a command-line
+//   argument. The pipeline includes the following steps:
 //
-//     1. Load the input image from disk.
-//     2. Preprocess: convert to grayscale and apply Gaussian blur.
-//     3. Load the correct polygon ROIs for the detected lot (via filename).
+//     1. Load input image from disk
+//     2. Preprocess: convert grayscale and apply Gaussian blur
+//     3. Load correct polygon ROIs for detected lot (via filename)
 //     4. Classify each space as occupied or empty using edge density and
-//        pixel variance (per-lot thresholds applied automatically).
-//     5. Annotate the image with colored polygon outlines and OCC/EMP labels.
-//     6. Overlay the total occupied/empty count as text.
-//     7. Save the annotated image to the output/ folder.
-//     8. Display the result in a window.
+//        pixel variance (per-lot thresholds applied automatically)
+//     5. Annotate image with colored polygon outlines and OCC/EMP labels
+//     6. Overlay total occupied/empty count as text
+//     7. Save annotated image to output/ folder
+//     8. Display result in a window
 //
 // Usage:
 //   Project.exe <image_path>
@@ -35,7 +35,8 @@
 #include <string>
 #include "parking.h"
 
-// --------main------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// main
 // Pre-conditions:
 //   1. Exactly one command-line argument is provided: the path to a valid
 //     image file readable by OpenCV (JPEG, PNG, BMP, etc.).
@@ -66,23 +67,23 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // --- Preprocessing ---
+    // Preprocessing
     cv::Mat gray, blurred;
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
     cv::GaussianBlur(gray, blurred, cv::Size(5, 5), 1.5);
 
-    // --- Classification ---
+    // Classification
     ParkingLot lot(imagePath);
     lot.classify(blurred);
 
-    // --- Draw results onto original color image ---
+    // Draw results onto original color image
     lot.drawResults(image);
 
-    // --- Count occupied / empty ---
+    // Count occupied / empty
     int occupied = lot.occupiedCount();
     int empty    = lot.emptyCount();
 
-    // Draw count text -- drawn twice for a simple white-outline effect
+    // Draw count text drawn twice for simple white-outline effect
     std::string countText = "Occupied: " + std::to_string(occupied) +
                             "   Empty: " + std::to_string(empty);
     cv::putText(image, countText, cv::Point(10, 35),
@@ -90,7 +91,7 @@ int main(int argc, char* argv[]) {
     cv::putText(image, countText, cv::Point(10, 35),
         cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 0, 0), 1);
 
-    // --- Save output ---
+    // Save output
     size_t sep = imagePath.find_last_of("/\\");
     std::string filename = (sep == std::string::npos) ? imagePath  : imagePath.substr(sep + 1);
     std::string imageDir = (sep == std::string::npos) ? "."        : imagePath.substr(0, sep);
@@ -104,7 +105,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Occupied: " << occupied << " | Empty: " << empty
               << " | Total: " << lot.totalCount() << std::endl;
 
-    // --- Display ---
+    // Display
     cv::imshow("Parking Lot Detector", image);
     cv::waitKey(0);
 

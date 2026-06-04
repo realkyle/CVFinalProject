@@ -1,12 +1,13 @@
-//----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // PARKING.CPP
-// Author: Jingyi Zhong, Kyle Hale
-// ----------------------------------------------------------------------------
+// Authors: Jingyi Zhong, Kyle Hale
+// ---------------------------------------------------------------------------
 
 #include "parking.h"
 
 // ---------------------------------------------------------------------------
-// Returns the hardcoded polygon ROIs for the UFPR04 parking lot.
+// loadROIs_UFPR04
+// Returns hardcoded polygon ROIs for the UFPR04 parking lot.
 // ---------------------------------------------------------------------------
 auto ParkingLot::loadROIs_UFPR04() -> std::vector<ParkingSpace> {
     std::vector<ParkingSpace> spaces = {
@@ -272,7 +273,8 @@ auto ParkingLot::loadROIs_UFPR04() -> std::vector<ParkingSpace> {
 }
 
 // ---------------------------------------------------------------------------
-// ANG lot — polygon ROIs traced manually with label_tool on ANG1.jpg
+// loadROIs_ANG
+// Returns polygon ROIs traced manually with label_tool on ANG1.jpg
 // ---------------------------------------------------------------------------
 auto ParkingLot::loadROIs_ANG() -> std::vector<ParkingSpace> {
     std::vector<ParkingSpace> spaces = {
@@ -315,10 +317,11 @@ auto ParkingLot::loadROIs_ANG() -> std::vector<ParkingSpace> {
 }
 
 // ---------------------------------------------------------------------------
-// PUCPR lot — smaller diagonal/angled lot with landscaping
+// loadROIs_PUCPR
+// Returns polygon ROIs for the PUCPR parking lot.
 // Calibrated from 2012-12-08 (mostly empty). Image size: 640x640.
 //
-// Rectangular ROIs approximate the angled space boundaries.
+// Rectangular ROIs approximate angled space boundaries.
 // ---------------------------------------------------------------------------
 auto ParkingLot::loadROIs_PUCPR() -> std::vector<ParkingSpace> {
     std::vector<ParkingSpace> spaces = {
@@ -366,19 +369,17 @@ auto ParkingLot::loadROIs_PUCPR() -> std::vector<ParkingSpace> {
     {{{561,87},{591,94},{591,144},{565,137}}, false},
     {{{596,116},{625,125},{632,185},{600,175}}, false},
     };
-    // 43 spaces total
     
     return spaces;
 }
 
 // ---------------------------------------------------------------------------
-// Internal enum and helper — identifies which lot an image belongs to from
-// its filename prefix. Used only by the ParkingLot constructor so the
-// prefix logic lives in exactly one place.
+// getLotType
+// Identifies which lot an image belongs to from its filename prefix.
+// Used only by the ParkingLot constructor so the prefix logic lives in exactly one place.
 //   UFPR04: filenames starting UFPR, 2012-09, 2012-10, or 2012-11
 //   PUCPR:  everything else (PUCPR*, 2012-12, 2013-*)
 // ---------------------------------------------------------------------------
-
 enum class Lot { ANG, UFPR04, PUCPR };
 
 static Lot getLotType(const std::string& imagePath) {
@@ -392,15 +393,14 @@ static Lot getLotType(const std::string& imagePath) {
     return Lot::PUCPR;
 }
 
-// -------ParkingLot constructor-------------------------------------------------
-// Loads the correct polygon ROIs and per-lot thresholds for the given image.
-// Thresholds were calibrated by running on a known-empty image of each lot
-// and setting the value just above the observed maximum empty-space signal.
+// ParkingLot constructor
+// Loads correct polygon ROIs and per-lot thresholds for given image.
+// Thresholds were tuned by running on known-empty image of each lot
+// and setting value just above observed maximum empty-space signal.
 //     ANG:    edge=170 (max observed: 166),  variance=35.0 (max observed: 30.06)
 //     UFPR04: edge=100,                      variance=25.0
 //     PUCPR:  edge=137,                      variance=35.0  (default)
 // ---------------------------------------------------------------------------
-
 ParkingLot::ParkingLot(const std::string& imagePath) {
     switch (getLotType(imagePath)) {
         case Lot::ANG:
@@ -421,21 +421,21 @@ ParkingLot::ParkingLot(const std::string& imagePath) {
     }
 }
 
-// -------ParkingLot::classify---------------------------------------------------
+// ParkingLot::classify
 // Classifies each parking space as occupied or empty.
-// 1. The polygon is shifted into bounding-rect-local coordinates before
-//    building the mask, so fillConvexPoly operates on a small sub-image
-//    rather than the full frame — avoids allocating a full-image mask.
-// 2. Canny thresholds (50 low, 150 high) are fixed at a 1:3 ratio as
-//    recommended by Canny. These are separate from edgeThreshold_ which
-//    counts how many edge pixels constitute an occupied space.
+// 1. Polygon is shifted into bounding-rect-local coordinates before
+//    building mask, so fillConvexPoly operates on small sub-image
+//    rather than full frame this avoids allocating full-image mask.
+// 2. Canny thresholds (50 low, 150 high) are fixed at 1:3 ratio as
+//    recommended by Canny. Separate from edgeThreshold_ which
+//    counts how many edge pixels constitute occupied space.
 // ---------------------------------------------------------------------------
 
 void ParkingLot::classify(const cv::Mat& blurred) {
     cv::Rect imgBounds(0, 0, blurred.cols, blurred.rows);
 
     for (auto& space : spaces_) {
-        // Clamp bounding rect to image bounds to prevent out of bound access
+        // Clamp bounding rect to image bounds to prevent out-of-bounds access
         cv::Rect bbox = cv::boundingRect(space.poly);
         cv::Rect safe = bbox & imgBounds;
         if (safe.empty()) { space.occupied = false; continue; }
@@ -455,7 +455,7 @@ void ParkingLot::classify(const cv::Mat& blurred) {
         cv::bitwise_and(edges, mask, edges);
         int edgeCount = cv::countNonZero(edges);
 
-        // Signal 2: pixel intensity stddev (empty pavement is uniform; cars add texture)
+        // Signal 2: pixel intensity stddev (empty pavement is uniform, cars add texture)
         cv::Scalar mean, stddev;
         cv::meanStdDev(roi, mean, stddev, mask);
         double sd = stddev[0];
@@ -464,9 +464,8 @@ void ParkingLot::classify(const cv::Mat& blurred) {
     }
 }
 
-// -------ParkingLot::drawResults------------------------------------------------
-// Annotates the image with occupancy results. See parking.h for full
-// pre/post-conditions and parameter documentation.
+// ParkingLot::drawResults
+// Annotates image with occupancy results.
 // ---------------------------------------------------------------------------
 
 void ParkingLot::drawResults(cv::Mat& image) const {
@@ -485,7 +484,7 @@ void ParkingLot::drawResults(cv::Mat& image) const {
     }
 }
 
-// -------ParkingLot count accessors--------------------------------------------
+// ParkingLot count accessors
 
 int ParkingLot::occupiedCount() const {
     int count = 0;
