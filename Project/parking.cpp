@@ -371,24 +371,39 @@ static std::vector<ParkingSpace> getROIs_PUCPR() {
     return spaces;
 }
 
+// ---------------------------------------------------------------------------
+// Internal enum and helper — identifies which lot an image belongs to from
+// its filename prefix. Used by getROIs, getThreshold, getVarianceThreshold
+// so the prefix logic lives in exactly one place.
+// ---------------------------------------------------------------------------
+
+enum class Lot { ANG, UFPR04, PUCPR };
+
+static Lot getLotType(const std::string& imagePath) {
+    size_t sep = imagePath.find_last_of("/\\");
+    std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
+    if (fname.find("ANG") == 0) return Lot::ANG;
+    if (fname.find("UFPR")    == 0 ||
+        fname.find("2012-09") == 0 ||
+        fname.find("2012-10") == 0 ||
+        fname.find("2012-11") == 0) return Lot::UFPR04;
+    return Lot::PUCPR;
+}
+
 // -------getROIs--------------------------------------------------------------------
 // Public router that selects the correct lot's polygon ROI set based on the
 // filename prefix and returns it.
-// 
+//
 // UFPR04: filenames starting UFPR, 2012-09, 2012-10, or 2012-11
 // PUCPR:  everything else (PUCPR*, 2012-12, 2013-*)
 // ---------------------------------------------------------------------------
 
 std::vector<ParkingSpace> getROIs(const std::string& imagePath) {
-    size_t sep = imagePath.find_last_of("/\\");
-    std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
-
-    if (fname.find("ANG") == 0)  return getROIs_ANG();
-    if (fname.find("UFPR") == 0 ||
-        fname.find("2012-09") == 0 ||
-        fname.find("2012-10") == 0 ||
-        fname.find("2012-11") == 0) return getROIs_UFPR04();
-    return getROIs_PUCPR();
+    switch (getLotType(imagePath)) {
+        case Lot::ANG:    return getROIs_ANG();
+        case Lot::UFPR04: return getROIs_UFPR04();
+        default:          return getROIs_PUCPR();
+    }
 }
 
 // -------getThreshold--------------------------------------------------------------------
@@ -401,15 +416,11 @@ std::vector<ParkingSpace> getROIs(const std::string& imagePath) {
 // ---------------------------------------------------------------------------
 
 int getThreshold(const std::string& imagePath) {
-    size_t sep = imagePath.find_last_of("/\\");
-    std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
-
-    if (fname.find("ANG") == 0)  return 170;
-    if (fname.find("UFPR") == 0 ||
-        fname.find("2012-09") == 0 ||
-        fname.find("2012-10") == 0 ||
-        fname.find("2012-11") == 0) return 100;
-    return 137;
+    switch (getLotType(imagePath)) {
+        case Lot::ANG:    return 170;
+        case Lot::UFPR04: return 100;
+        default:          return 137;
+    }
 }
 
 // -------getVarianceThreshold--------------------------------------------------------------------
@@ -421,15 +432,11 @@ int getThreshold(const std::string& imagePath) {
 // ---------------------------------------------------------------------------
 
 double getVarianceThreshold(const std::string& imagePath) {
-    size_t sep = imagePath.find_last_of("/\\");
-    std::string fname = (sep == std::string::npos) ? imagePath : imagePath.substr(sep + 1);
-
-    if (fname.find("ANG") == 0)  return 35.0;
-    if (fname.find("UFPR") == 0 ||
-        fname.find("2012-09") == 0 ||
-        fname.find("2012-10") == 0 ||
-        fname.find("2012-11") == 0) return 25.0;
-    return 35.0;
+    switch (getLotType(imagePath)) {
+        case Lot::ANG:    return 35.0;
+        case Lot::UFPR04: return 25.0;
+        default:          return 35.0;
+    }
 }
 
 // -------classifySpaces--------------------------------------------------------------------
