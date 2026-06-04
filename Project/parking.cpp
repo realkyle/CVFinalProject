@@ -4,7 +4,6 @@
 // ----------------------------------------------------------------------------
 
 #include "parking.h"
-#include <algorithm>
 
 // ---------------------------------------------------------------------------
 // Returns the hardcoded polygon ROIs for the UFPR04 parking lot.

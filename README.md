@@ -85,7 +85,7 @@ Thresholds are calibrated per lot on an empty reference image:
 
 | Lot | Edge threshold | Variance threshold | Calibration image |
 |---|---|---|---|
-| PUCPR  | 137 | 35.0 | PUCPR3.jpg |
+| PUCPR  | 137 | 35.0 | PUCPR1.jpg |
 | UFPR04 | 100 | 25.0 | UFPR1.jpg  |
 | ANG    | 170 | 35.0 | ANG1.jpg   |
 
@@ -134,9 +134,9 @@ Press any key in the display window to advance to the next image when running th
 
 | Image | Lot | Condition | Occupied | Empty | Total |
 |---|---|---|---|---|---|
-| PUCPR3.jpg | PUCPR  | Empty reference | 0   | 43  | 43  |
-| PUCPR1.jpg | PUCPR  | Partial         | 26  | 17  | 43  |
-| PUCPR2.jpg | PUCPR  | Heavy           | 32  | 11  | 43  |
+| PUCPR1.jpg | PUCPR  | Empty reference | 0   | 43  | 43  |
+| PUCPR2.jpg | PUCPR  | Partial         | 26  | 17  | 43  |
+| PUCPR3.jpg | PUCPR  | Heavy           | 32  | 11  | 43  |
 | UFPR1.jpg  | UFPR04 | Empty reference | 0   | 257 | 257 |
 | UFPR2.jpg  | UFPR04 | Partial         | 120 | 137 | 257 |
 | UFPR3.jpg  | UFPR04 | Heavy           | 212 | 45  | 257 |
