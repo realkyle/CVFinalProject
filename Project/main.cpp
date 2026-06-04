@@ -72,16 +72,15 @@ int main(int argc, char* argv[]) {
     cv::GaussianBlur(gray, blurred, cv::Size(5, 5), 1.5);
 
     // --- Classification ---
-    std::vector<ParkingSpace> spaces = getROIs(imagePath);
-    classifySpaces(blurred, spaces, getThreshold(imagePath), getVarianceThreshold(imagePath));
+    ParkingLot lot(imagePath);
+    lot.classify(blurred);
 
     // --- Draw results onto original color image ---
-    drawResults(image, spaces);
+    lot.drawResults(image);
 
     // --- Count occupied / empty ---
-    int occupied = 0, empty = 0;
-    for (const auto& s : spaces)
-        s.occupied ? ++occupied : ++empty;
+    int occupied = lot.occupiedCount();
+    int empty    = lot.emptyCount();
 
     // Draw count text -- drawn twice for a simple white-outline effect
     std::string countText = "Occupied: " + std::to_string(occupied) +
@@ -103,7 +102,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Saved: " << outputPath << std::endl;
 
     std::cout << "Occupied: " << occupied << " | Empty: " << empty
-              << " | Total: " << spaces.size() << std::endl;
+              << " | Total: " << lot.totalCount() << std::endl;
 
     // --- Display ---
     cv::imshow("Parking Lot Detector", image);
